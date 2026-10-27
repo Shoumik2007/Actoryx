@@ -8,7 +8,7 @@ A small [FastAPI](https://fastapi.tiangolo.com/) app built for the Day 1 assignm
 |---|---|
 | `app.py` | The API: defines the endpoints and calls the logic in `ee.py` |
 | `ee.py` | The logic: `calculate`, `energy_cost`, and `monthly_bill` (stretch, not finished) |
-| `appliance.py` | Step 5 appliance list (GET/POST/PUT/DELETE), kept in memory. Not connected to `app.py` yet |
+| `appliance.py` | Reference only: example of a pydantic model (`Appliance`) used to validate a JSON body. Not used by `app.py` |
 
 ## Setup
 
