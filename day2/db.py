@@ -56,3 +56,18 @@ class ApplianceRow(Base):
 
 
 Base.metadata.create_all(engine)                               # create the tables if they don't exist yet
+
+
+def seed_readings():
+    """Fill the readings table from the CSV if it's empty (e.g. on a fresh cloud server)."""
+    import pandas as pd
+    from sqlalchemy import func, select
+    with Session() as s:
+        if s.scalar(select(func.count()).select_from(Reading)):
+            return
+        csv = pd.read_csv(data_file(), parse_dates=["timestamp"])
+        s.add_all(Reading(**row) for row in csv.to_dict("records"))
+        s.commit()
+
+
+seed_readings()

@@ -6,3 +6,5 @@
 
    [tool.fastapi]
    entrypoint = "app:app"
+[tool.setuptools]
+py-modules = ["app", "appliance", "db", "ee", "queries"]

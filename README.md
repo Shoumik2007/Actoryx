@@ -38,3 +38,26 @@ Units are kWh: `watts × hours ÷ 1000`. Cost is `units × rate`.
 - [x] TODO 2: `POST /energy-cost`
 - [ ] Stretch: `GET /appliances/{appliance_id}/cost`
 - [ ] Stretch: `GET /bill?units=250` (slab tariff)
+
+## Day 2 — database + deployment (`day2/`)
+
+**Live:** https://campus-energy-api.fastapicloud.dev — interactive docs at https://campus-energy-api.fastapicloud.dev/docs
+
+The API now stores data in SQLite (SQLAlchemy): every calculation is saved, and two months of substation readings (Feb–Mar 2026, one every 15 minutes) are loaded from `campus_feb_mar_2026.csv`. On a fresh server the readings table is filled automatically at startup.
+
+| Method | Path | Example | Result |
+|---|---|---|---|
+| GET | `/history` | `/history?limit=10` | Most recent calculations, newest first |
+| GET | `/readings` | `/readings?start=2026-03-23T00:00&end=2026-03-24T00:00` | Readings in that time window |
+| GET | `/summary` | `/summary?day=2026-02-24` | Peak load, energy, solar and peak transformer loading for one day |
+| GET | `/peak-days` | `/peak-days?top=5` | The days the transformer was loaded hardest, highest first (`top` 1–20) |
+
+Run locally:
+
+```bash
+cd day2
+python 02_load_readings.py
+uvicorn app:app --reload
+```
+
+Deploy (FastAPI Cloud): `cd day2 && fastapi deploy`
