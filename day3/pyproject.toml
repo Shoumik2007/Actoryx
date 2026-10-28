@@ -1,0 +1,10 @@
+   [project]
+   name = "campus-energy-api"
+   version = "0.1.0"
+   requires-python = ">=3.12"
+   dependencies = ["fastapi[standard]", "sqlalchemy>=2.0", "pandas>=2.2"]
+
+   [tool.fastapi]
+   entrypoint = "app:app"
+[tool.setuptools]
+py-modules = ["app", "appliance", "db", "ee", "queries"]
