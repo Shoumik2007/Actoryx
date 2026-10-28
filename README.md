@@ -61,3 +61,41 @@ uvicorn app:app --reload
 ```
 
 Deploy (FastAPI Cloud): `cd day2 && fastapi deploy`
+
+## Day 3 — a UI on the API (`day3/`)
+
+**Live dashboard:** https://campus-energy-dashboard.streamlit.app (the calculator page runs locally only)
+
+Two [Streamlit](https://streamlit.io/) pages for people who don't write code. The pages do no maths: every number comes from the API (the same code as Day 2), which reads the database.
+
+| File | What it does |
+|---|---|
+| `ui_calculator.py` | Three tabs (calculator, energy cost, bill) and a history table. Shows the API's own error messages |
+| `dashboard.py` | Pick a day: peak load, energy, solar, transformer loading, a load vs solar chart and the five hardest days |
+| `test_ui.py` | Starts the API and runs both pages with Streamlit's `AppTest`, without a browser |
+
+**Task — status banner:** the dashboard shows a red OVERLOAD banner above 100% transformer loading, amber HIGH above 80%, and green NORMAL otherwise, with the time it happened. The thresholds are TR-MAIN's operating limits.
+
+| Day | Banner | Screenshot |
+|---|---|---|
+| 23 March | 🔴 OVERLOAD 106.4% at 12:45 | [banner_2026-03-23.jpg](day3/banner_2026-03-23.jpg) |
+| 4 March (Holi) | 🟢 NORMAL 67.1% at 20:15 | [banner_2026-03-04.jpg](day3/banner_2026-03-04.jpg) |
+
+Run locally (two terminals):
+
+```bash
+cd day3
+pip install -r requirements.txt
+uvicorn app:app --reload         # terminal 1: the API
+streamlit run dashboard.py       # terminal 2: or ui_calculator.py
+```
+
+Test both pages: `cd day3 && python test_ui.py`
+
+The pages call the API at `API_URL`, which defaults to `http://127.0.0.1:8000`.
+
+Deploy (Streamlit Community Cloud): on https://share.streamlit.io, create an app from this repo, branch `main`, main file `day3/dashboard.py` (or `day3/ui_calculator.py`). Under **Advanced settings → Secrets** add:
+
+```toml
+API_URL = "https://campus-energy-api.fastapicloud.dev"
+```
