@@ -1,0 +1,17 @@
+message,category
+"INV-07 AC contactor open after grid overvoltage trip, auto-reconnect pending",protection
+"33 kV feeder breaker CB-2 tripped on earth fault, relay 50N operated",protection
+"Transformer TR-1 Buchholz relay alarm stage 1",protection
+"Distance relay zone-1 trip on 132 kV line, auto-reclose successful",protection
+"Data logger DL-3 lost Modbus connection to INV-11, last value held",communication
+"SCADA RTU at pooling station not responding, 3 polls missed",communication
+"Weather station pyranometer reading frozen at 812 W/m2 for 40 minutes",communication
+"IEC 61850 GOOSE message timeout from bay controller BC-4",communication
+"Voltage THD at 415 V bus reached 7.6%, approaching 8% limit",power quality
+"Voltage sag to 82% for 120 ms on 11 kV incomer",power quality
+"Power factor at HT meter dropped to 0.86, capacitor bank stage 3 not switching",power quality
+"Current unbalance 12% on Workshop feeder",power quality
+"INV-15 heatsink temperature 78 C, derating active",equipment health
+"Transformer TR-2 oil temperature 92 C, cooling fan 2 not running",equipment health
+"Battery rack 4 cell voltage imbalance 120 mV, BMS balancing",equipment health
+"PV string 3 on INV-05 insulation resistance low, 0.8 MOhm",equipment health

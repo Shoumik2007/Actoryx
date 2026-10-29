@@ -99,3 +99,26 @@ Deploy (Streamlit Community Cloud): on https://share.streamlit.io, create an app
 ```toml
 API_URL = "https://campus-energy-api.fastapicloud.dev"
 ```
+
+## Day 4 — SCADA alarms with a local LLM (`day4/`)
+
+Free-text SCADA alarms are turned into structured JSON that a program can sort and count. The model runs locally with [Ollama](https://ollama.com) (`llama3.2`): no API keys, and nothing leaves the laptop.
+
+| File | What it does |
+|---|---|
+| `llm.py` | Small wrapper around Ollama: `ask()` for text, `ask_json()` for a reply that must match a pydantic model |
+| `classify_alarms.py` | Classifies each alarm into an `Alarm` model (equipment, category, severity) and scores it against the labels |
+| `alarms.csv` | 16 alarm messages from a campus solar + substation system, each with its correct category |
+
+**Categories:** protection, communication, power quality, equipment health. **Severity:** critical, warning, info. The prompt explains each category in one line, and `temperature=0` with a fixed seed gives the same answers on every run.
+
+**Score: 15 of 16.** The only miss: "pyranometer reading frozen at 812 W/m2" is labelled communication (a stuck reading), but the model calls it equipment health.
+
+Run locally:
+
+```bash
+ollama pull llama3.2             # once
+cd day4
+pip install -r requirements.txt
+python classify_alarms.py
+```
