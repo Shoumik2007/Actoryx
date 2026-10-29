@@ -1,6 +1,6 @@
 # Actoryx — Campus Energy API
 
-A campus energy API for a college with a 630 kVA transformer (TR-MAIN) and a 500 kWp rooftop solar plant, built up day by day: a [FastAPI](https://fastapi.tiangolo.com/) API, then a database and cloud deployment, a [Streamlit](https://streamlit.io/) dashboard, and finally a local LLM (llama3.2 via [Ollama](https://ollama.com)).
+A campus energy API for a college with a 630 kVA transformer (TR-MAIN) and a 500 kWp rooftop solar plant, built up day by day: a [FastAPI](https://fastapi.tiangolo.com/) API, then a database and cloud deployment, a [Streamlit](https://streamlit.io/) dashboard, and finally an LLM (llama3.2 locally via [Ollama](https://ollama.com), or [Groq](https://groq.com) in the cloud).
 
 | Day | Folder | What it adds | Live |
 |---|---|---|---|
@@ -8,7 +8,7 @@ A campus energy API for a college with a 630 kVA transformer (TR-MAIN) and a 500
 | 2 | [`day2/`](day2) | SQLite database, substation readings, deployment | [API docs](https://campus-energy-api.fastapicloud.dev/docs) |
 | 3 | [`day3/`](day3) | Streamlit calculator and dashboard | [Dashboard](https://campus-energy-dashboard.streamlit.app) |
 | 4 | [`day4/`](day4) | SCADA alarms classified by llama3.2 | Local only |
-| 4 | [`day4_dashboard/`](day4_dashboard) | Ask the dashboard questions in plain English | Local only |
+| 4 | [`day4_dashboard/`](day4_dashboard) | Ask the dashboard questions in plain English (Groq or Ollama) | — |
 
 Each folder runs on its own. See its section below.
 
@@ -137,9 +137,9 @@ pip install -r requirements.txt
 python classify_alarms.py
 ```
 
-## Day 4 — llama3.2 on the Streamlit dashboard (`day4_dashboard/`)
+## Day 4 — an LLM on the Streamlit dashboard (`day4_dashboard/`)
 
-The Day 3 dashboard gets a chat box: ask the database a question in plain English, answered by `llama3.2` running locally through Ollama. The model never does the maths. It only chooses which query to run and puts the result into words.
+The Day 3 dashboard gets a chat box: ask the database a question in plain English, answered by an LLM: Groq's cloud API when `GROQ_API_KEY` is set, otherwise `llama3.2` running locally through Ollama. The model never does the maths. It only chooses which query to run and puts the result into words.
 
 How `GET /ask-data?q=...&day=...` answers a question:
 
@@ -152,7 +152,7 @@ How `GET /ask-data?q=...&day=...` answers a question:
 |---|---|
 | `app.py` | The Day 2 API plus the `/ask-data` endpoint |
 | `dashboard.py` | The Day 3 dashboard plus the chat box |
-| `llm.py` | The Ollama wrapper from Day 4 (`ask`, `ask_json`) |
+| `llm.py` | The Day 4 wrapper (`ask`, `ask_json`) with two backends: Groq if `GROQ_API_KEY` is set, otherwise Ollama |
 
 Run locally (two terminals, with Ollama running):
 
@@ -164,4 +164,20 @@ uvicorn app:app --reload         # terminal 1: the API
 streamlit run dashboard.py       # terminal 2: the dashboard
 ```
 
-The chat box needs Ollama on the same machine as the API, so it only works locally. If Ollama isn't running, `/ask-data` returns 503 with a message saying so.
+**Choosing the LLM:**
+
+| Setting | Backend | Notes |
+|---|---|---|
+| No `GROQ_API_KEY` | Ollama, `llama3.2` | Runs on the laptop, no key, nothing leaves the machine |
+| `GROQ_API_KEY` set | Groq, `openai/gpt-oss-20b` | Free key from https://console.groq.com. Change the model with `GROQ_MODEL` |
+
+To use Groq locally, set the key before starting the API (never commit it):
+
+```bash
+export GROQ_API_KEY=...          # your key
+uvicorn app:app --reload
+```
+
+When deploying, add `GROQ_API_KEY` as a secret or environment variable on the host instead.
+
+If the LLM can't be reached (Ollama not running, or a bad Groq key, rate limit or no internet), `/ask-data` returns 503 with a message saying which to check.

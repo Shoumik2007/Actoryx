@@ -57,7 +57,7 @@ st.dataframe(pd.DataFrame(get("/peak-days", top=5)), hide_index=True, width="str
 # ── Day 4: ask the data. The LLM picks the query, the API runs it on the database, code checks every number ──
 st.divider()
 st.subheader("💬 Ask the data")
-st.caption(f"llama3.2 runs on this laptop. Questions without a date use the day picked above ({day}).")
+st.caption(f"Answered by an LLM (Groq when a key is set, otherwise Ollama on this laptop). Questions without a date use the day picked above ({day}).")
 if "chat" not in st.session_state:
     st.session_state.chat = []
 for m in st.session_state.chat:
@@ -69,7 +69,7 @@ for m in st.session_state.chat:
 
 if question := st.chat_input("e.g. Was the transformer stressed?  Which 3 days were worst?"):
     st.session_state.chat.append({"role": "user", "content": question})
-    with st.spinner("Asking llama3.2 and the database…"):
+    with st.spinner("Asking the LLM and the database…"):
         try:
             r = get("/ask-data", timeout=180, q=question, day=day)
             st.session_state.chat.append({"role": "assistant", "content": r["answer"], "data": r["data"], "query": r["query"]})

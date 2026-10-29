@@ -149,7 +149,7 @@ def ask_data(q: str = Query(min_length=3, max_length=300, description="a questio
     except ValidationError:
         raise HTTPException(status_code=422, detail="Could not work out which data the question needs; try rephrasing.")
     except ConnectionError:
-        raise HTTPException(status_code=503, detail="Ollama is not running. Start it, then: ollama pull llama3.2")
+        raise HTTPException(status_code=503, detail="The LLM is not reachable. Locally: start Ollama (ollama pull llama3.2). Deployed: check GROQ_API_KEY.")
     the_day = pick_day(q, p.day, day)
     if p.query == "one_day_numbers":                                                    # 2. code runs it
         if the_day is None:
