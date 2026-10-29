@@ -1,8 +1,22 @@
-# Actoryx — Campus Energy API (Day 1)
+# Actoryx — Campus Energy API
 
-A small [FastAPI](https://fastapi.tiangolo.com/) app built for the Day 1 assignment: a calculator and an appliance energy-cost calculator, served as a web API.
+A campus energy API for a college with a 630 kVA transformer (TR-MAIN) and a 500 kWp rooftop solar plant, built up day by day: a [FastAPI](https://fastapi.tiangolo.com/) API, then a database and cloud deployment, a [Streamlit](https://streamlit.io/) dashboard, and finally a local LLM (llama3.2 via [Ollama](https://ollama.com)).
 
-## Files
+| Day | Folder | What it adds | Live |
+|---|---|---|---|
+| 1 | root (`app.py`, `ee.py`) | Calculator and energy-cost API | — |
+| 2 | [`day2/`](day2) | SQLite database, substation readings, deployment | [API docs](https://campus-energy-api.fastapicloud.dev/docs) |
+| 3 | [`day3/`](day3) | Streamlit calculator and dashboard | [Dashboard](https://campus-energy-dashboard.streamlit.app) |
+| 4 | [`day4/`](day4) | SCADA alarms classified by llama3.2 | Local only |
+| 4 | [`day4_dashboard/`](day4_dashboard) | Ask the dashboard questions in plain English | Local only |
+
+Each folder runs on its own. See its section below.
+
+## Day 1 — the API (root folder)
+
+A calculator and an appliance energy-cost calculator, served as a web API.
+
+### Files
 
 | File | What it does |
 |---|---|
@@ -10,7 +24,7 @@ A small [FastAPI](https://fastapi.tiangolo.com/) app built for the Day 1 assignm
 | `ee.py` | The logic: `calculate`, `energy_cost`, and `monthly_bill` (stretch, not finished) |
 | `appliance.py` | Reference only: example of a pydantic model (`Appliance`) used to validate a JSON body. Not used by `app.py` |
 
-## Setup
+### Setup
 
 ```bash
 pip install fastapi uvicorn
@@ -19,7 +33,7 @@ uvicorn app:app --reload
 
 Then open http://127.0.0.1:8000/docs for the interactive docs.
 
-## Endpoints
+### Endpoints
 
 | Method | Path | Example | Result |
 |---|---|---|---|
@@ -32,7 +46,7 @@ Energy cost inputs are checked: watts 0–50,000, hours 0–24, rate 0–50 ₹/
 
 Units are kWh: `watts × hours ÷ 1000`. Cost is `units × rate`.
 
-## Assignment status
+### Assignment status
 
 - [x] TODO 1: `GET /energy-cost`
 - [x] TODO 2: `POST /energy-cost`
