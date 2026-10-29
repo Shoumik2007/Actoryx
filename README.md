@@ -8,7 +8,7 @@ A campus energy API for a college with a 630 kVA transformer (TR-MAIN) and a 500
 | 2 | [`day2/`](day2) | SQLite database, substation readings, deployment | [API docs](https://campus-energy-api.fastapicloud.dev/docs) |
 | 3 | [`day3/`](day3) | Streamlit calculator and dashboard | [Dashboard](https://campus-energy-dashboard.streamlit.app) |
 | 4 | [`day4/`](day4) | SCADA alarms classified by llama3.2 | Local only |
-| 4 | [`day4_dashboard/`](day4_dashboard) | Ask the dashboard questions in plain English (Groq or Ollama) | — |
+| 4 | [`day4_dashboard/`](day4_dashboard) | Ask the dashboard questions in plain English (Groq or Ollama) | [Dashboard](https://campus-energy-llm.streamlit.app) · [API docs](https://campus-energy-day4.fastapicloud.dev/docs) |
 
 Each folder runs on its own. See its section below.
 
@@ -139,6 +139,8 @@ python classify_alarms.py
 
 ## Day 4 — an LLM on the Streamlit dashboard (`day4_dashboard/`)
 
+**Live dashboard:** https://campus-energy-llm.streamlit.app — API at https://campus-energy-day4.fastapicloud.dev ([docs](https://campus-energy-day4.fastapicloud.dev/docs)). The deployed version uses Groq.
+
 The Day 3 dashboard gets a chat box: ask the database a question in plain English, answered by an LLM: Groq's cloud API when `GROQ_API_KEY` is set, otherwise `llama3.2` running locally through Ollama. The model never does the maths. It only chooses which query to run and puts the result into words.
 
 How `GET /ask-data?q=...&day=...` answers a question:
@@ -179,5 +181,23 @@ uvicorn app:app --reload
 ```
 
 When deploying, add `GROQ_API_KEY` as a secret or environment variable on the host instead.
+
+**Deployment:** the API and the dashboard are deployed separately from Day 2 and Day 3, so those stay unchanged.
+
+1. API (FastAPI Cloud), app `campus-energy-day4`:
+
+   ```bash
+   cd day4_dashboard
+   fastapi deploy
+   fastapi cloud env set GROQ_API_KEY --value-stdin --secret   # paste the key, then Ctrl+D
+   ```
+
+2. Dashboard (Streamlit Community Cloud): an app from this repo, branch `main`, main file `day4_dashboard/dashboard.py`. Under **Settings → Secrets** add the line below, then reboot the app:
+
+   ```toml
+   API_URL = "https://campus-energy-day4.fastapicloud.dev"
+   ```
+
+   If the dashboard says the API is not running, `API_URL` is missing or wrong, so it falls back to `http://127.0.0.1:8000`.
 
 If the LLM can't be reached (Ollama not running, or a bad Groq key, rate limit or no internet), `/ask-data` returns 503 with a message saying which to check.
