@@ -122,3 +122,32 @@ cd day4
 pip install -r requirements.txt
 python classify_alarms.py
 ```
+
+## Day 4 — llama3.2 on the Streamlit dashboard (`day4_dashboard/`)
+
+The Day 3 dashboard gets a chat box: ask the database a question in plain English, answered by `llama3.2` running locally through Ollama. The model never does the maths. It only chooses which query to run and puts the result into words.
+
+How `GET /ask-data?q=...&day=...` answers a question:
+
+1. **LLM picks the query:** one day's numbers, the worst days ranking, recent calculations, or the appliance list.
+2. **Code runs it** on the database. Dates and "top N" are read from the question by code, and the OVERLOAD / HIGH / NORMAL status is decided by code, not by the model.
+3. **LLM explains** the result in two or three sentences.
+4. **Code checks every number** in the answer against the data. If the model used a number that isn't there, the answer is withheld and the raw data is shown instead.
+
+| File | What it does |
+|---|---|
+| `app.py` | The Day 2 API plus the `/ask-data` endpoint |
+| `dashboard.py` | The Day 3 dashboard plus the chat box |
+| `llm.py` | The Ollama wrapper from Day 4 (`ask`, `ask_json`) |
+
+Run locally (two terminals, with Ollama running):
+
+```bash
+ollama pull llama3.2             # once
+cd day4_dashboard
+pip install -r requirements.txt
+uvicorn app:app --reload         # terminal 1: the API
+streamlit run dashboard.py       # terminal 2: the dashboard
+```
+
+The chat box needs Ollama on the same machine as the API, so it only works locally. If Ollama isn't running, `/ask-data` returns 503 with a message saying so.
