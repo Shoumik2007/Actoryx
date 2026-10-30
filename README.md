@@ -1,6 +1,6 @@
 # Actoryx — Campus Energy API
 
-A campus energy API for a college with a 630 kVA transformer (TR-MAIN) and a 500 kWp rooftop solar plant, built up day by day: a [FastAPI](https://fastapi.tiangolo.com/) API, then a database and cloud deployment, a [Streamlit](https://streamlit.io/) dashboard, and finally an LLM (llama3.2 locally via [Ollama](https://ollama.com), or [Groq](https://groq.com) in the cloud).
+A campus energy API for a college with a 630 kVA transformer (TR-MAIN) and a 500 kWp rooftop solar plant, built up day by day: a [FastAPI](https://fastapi.tiangolo.com/) API, then a database and cloud deployment, a [Streamlit](https://streamlit.io/) dashboard, then an LLM (llama3.2 locally via [Ollama](https://ollama.com), or [Groq](https://groq.com) in the cloud), and finally an agent that gets its data through [MCP](https://modelcontextprotocol.io) tools.
 
 | Day | Folder | What it adds | Live |
 |---|---|---|---|
@@ -9,6 +9,7 @@ A campus energy API for a college with a 630 kVA transformer (TR-MAIN) and a 500
 | 3 | [`day3/`](day3) | Streamlit calculator and dashboard | [Dashboard](https://campus-energy-dashboard.streamlit.app) |
 | 4 | [`day4/`](day4) | SCADA alarms classified by llama3.2 | Local only |
 | 4 | [`day4_dashboard/`](day4_dashboard) | Ask the dashboard questions in plain English (Groq or Ollama) | [Dashboard](https://campus-energy-llm.streamlit.app) · [API docs](https://campus-energy-day4.fastapicloud.dev/docs) |
+| 5 | [`day5/`](day5) | An agent on the dashboard, using MCP tools (Groq or Ollama) | [API docs](https://campus-energy-mcp.fastapicloud.dev/docs) |
 
 Each folder runs on its own. See its section below.
 
@@ -201,3 +202,101 @@ When deploying, add `GROQ_API_KEY` as a secret or environment variable on the ho
    If the dashboard says the API is not running, `API_URL` is missing or wrong, so it falls back to `http://127.0.0.1:8000`.
 
 If the LLM can't be reached (Ollama not running, or a bad Groq key, rate limit or no internet), `/ask-data` returns 503 with a message saying which to check.
+
+## Day 5 — an agent that works through MCP (`day5/`)
+
+**Live API:** https://campus-energy-mcp.fastapicloud.dev ([docs](https://campus-energy-mcp.fastapicloud.dev/docs)). The deployed version uses Groq.
+
+The dashboard's chat box now talks to an agent instead of `/ask-data`. The agent decides which tools to call, and it reaches the data only through the tools on an [MCP](https://modelcontextprotocol.io) server. The same server can also be used by other MCP clients, such as Claude Code.
+
+```
+dashboard.py → GET /ask-agent → agent.py ⇄ LLM (Groq or Ollama)
+                                   ↓
+                     tools.py (MCP client) → mcp_server.py → queries.py / ee.py → database
+```
+
+The MCP client and server run inside the API process and talk in memory, so the deployed app has no public `/mcp` address. The other dashboard panels call the REST endpoints directly.
+
+How `GET /ask-agent?q=...&day=...` answers a question:
+
+1. **Code narrows the choice:** it works out which tools could help with this question, and the model may only pick from those.
+2. **LLM picks a tool:** each step is validated. A step that isn't allowed is refused and the model tries again, up to 5 steps.
+3. **Code fills in what it can read exactly:** dates, the ₹ rate, and the units for a bill on a named day. Calculator inputs the model supplies must appear in the question or a tool result.
+4. **The MCP server runs the tool** and returns the result, including the OVERLOAD / HIGH / NORMAL status, which code decides.
+5. **LLM writes the answer**, then **code checks every number** against the question and the tool results. If a number isn't there, the sentence is rejected and only the evidence is shown.
+
+The dashboard shows a code-written evidence line and the tool calls under each answer. Check the sentence against them: the number check can't tell when a real number is described wrongly.
+
+### MCP tools
+
+| Tool | What it does |
+|---|---|
+| `day_summary` | One day's peak load, peak loading %, status, energy, solar and hottest air |
+| `compare_days` | The same numbers for 2 to 7 days, with the highest and lowest loading day |
+| `peak_days` | The days the transformer worked hardest |
+| `get_explanation` | Two plain sentences about a day, written by the LLM and checked by code |
+| `energy_cost` | Units and ₹ cost of running an appliance |
+| `monthly_bill` | The monthly bill for a number of units (slab tariff) |
+| `recent_calculations` | Calculations already made, newest first |
+| `appliance_list` | The campus appliance list |
+
+### Files
+
+| File | What it does |
+|---|---|
+| `agent.py` | The agent loop and its guardrails |
+| `tools.py` | The agent's tools, each calling the MCP server through an MCP client |
+| `mcp_server.py` | The MCP server: `ee.py` and `queries.py` published as tools |
+| `llm.py` | Two backends: Groq if `GROQ_API_KEY` is set, otherwise Ollama |
+| `app.py` | The API plus the `/ask-agent` endpoint |
+| `dashboard.py` | The Day 4 dashboard, with the chat box now calling the agent |
+| `eval_agent.py` | 8 test questions, scored on the right tool and the right evidence |
+| `01_run_agent.py` | Runs the agent on three questions in the terminal, without the API |
+
+### Run locally
+
+```bash
+cd day5
+pip install -r requirements.txt
+export GROQ_API_KEY=...          # optional: without it, run Ollama (ollama pull llama3.2)
+uvicorn app:app --reload         # terminal 1: the API
+streamlit run dashboard.py       # terminal 2: the dashboard
+```
+
+Test the agent (Groq's free tier may rate-limit a full run; if so, wait a minute and retry):
+
+```bash
+python eval_agent.py
+```
+
+To use the tools from Claude Code, register the server from `day5/` with the full path to your Python and to `mcp_server.py`, then approve it when you next start Claude Code:
+
+```bash
+claude mcp add --scope project campus-energy -- /full/path/to/python3 /full/path/to/day5/mcp_server.py
+```
+
+### Deployment
+
+1. API (FastAPI Cloud):
+
+   ```bash
+   cd day5
+   fastapi deploy
+   fastapi cloud env set GROQ_API_KEY --value-stdin --secret   # paste the key, press Enter, then Ctrl+D
+   fastapi deploy                                              # so the running app picks up the key
+   ```
+
+   The readings table is filled from `campus_feb_mar_2026.csv` on a fresh server. History and appliances are kept in that server's SQLite file, so they may not survive a redeploy.
+
+2. Dashboard (Streamlit Community Cloud): an app from this repo, branch `main`, main file `day5/dashboard.py`. Under **Settings → Secrets** add the line below, then reboot the app. The Groq key goes on the API, not here.
+
+   ```toml
+   API_URL = "https://campus-energy-mcp.fastapicloud.dev"
+   ```
+
+### Known limits
+
+- **Bills for one day are estimates:** the slab tariff is monthly, so a bill on a named day applies it to that day's energy, before solar, and the answer says so.
+- **Date formats:** `2026-03-04`, `March 4th` and `4 March` are understood. `the 4th of March` is not.
+- **The eval doesn't check wording:** it can pass while a sentence is misleading, so read the answers as well as the score.
+- **Answers need the key on Groq:** if the LLM can't be reached, or Groq rejects a request, `/ask-agent` returns 503 with the reason.
