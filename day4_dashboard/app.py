@@ -85,12 +85,14 @@ def peak_days(top:int = Query(5, ge=1,le=20)):
 
 # ── Day 4: ask the data in plain English. The LLM picks the query, code runs it, the LLM explains, code checks ──
 class DataQuestion(BaseModel):
-    query: Literal["one_day_numbers", "ranking_of_worst_days", "recent_calculations", "appliance_list"]
+    query: Literal["one_day_numbers", "compare_days", "ranking_of_worst_days", "recent_calculations", "appliance_list"]
     day: str = Field("", description="the date the question names, as YYYY-MM-DD, or empty")
+    days: list[str] = Field([], description="for compare_days: every date the question names, as YYYY-MM-DD")
 
 
 PICK = """Pick the database query that answers this question about a campus substation (transformer TR-MAIN, rooftop solar).
 - one_day_numbers: numbers for one day: peak load, energy used, solar generated, transformer loading, hottest air, whether it was stressed
+- compare_days: the same numbers for two or more named days, side by side (which was higher, how they differ)
 - ranking_of_worst_days: which days were the worst, hardest or most loaded, highest first
 - recent_calculations: calculations people asked the API for (bills, appliance energy cost)
 - appliance_list: the campus appliance list (name, watts, hours per day)
@@ -98,9 +100,11 @@ Examples:
 "How much solar did we make?" -> one_day_numbers
 "Was the transformer overloaded on 2026-03-23?" -> one_day_numbers
 "What was the peak load on March 17?" -> one_day_numbers, day 2026-03-17
+"Compare the loading on 2026-03-17 and 2026-03-23" -> compare_days, days [2026-03-17, 2026-03-23]
+"Was loading higher on March 5 or March 17?" -> compare_days, days [2026-03-05, 2026-03-17]
 "Which 3 days were worst?" -> ranking_of_worst_days
 "What bills did people calculate?" -> recent_calculations
-day: only if the question names a date (readings run 2026-02-01 to 2026-03-31), otherwise empty.
+day / days: only dates the question names (readings run 2026-02-01 to 2026-03-31), otherwise empty.
 
 Question: {q}"""
 
@@ -140,6 +144,31 @@ def pick_day(q, picked, fallback):
     return fallback
 
 
+def pick_days(q, picked, fallback):
+    """The same rules as pick_day, for every day in the question. If it names only one, the dashboard's day is the other."""
+    iso = r"\d{4}-\d{2}-\d{2}"
+    days = [date.fromisoformat(m) for m in re.findall(iso, q)]
+    numbers = {int(n) for n in re.findall(r"\d+", re.sub(iso, "", q))}       # numbers outside the YYYY-MM-DD dates
+    for p in picked:
+        try:
+            d = date.fromisoformat(p)
+        except ValueError:
+            continue
+        if d.day in numbers and d not in days:
+            days.append(d)
+    if len(days) == 1 and fallback and fallback not in days:
+        days.append(fallback)
+    return days[:7]
+
+
+def with_status(day):
+    """One day's numbers plus the OVERLOAD / HIGH / NORMAL verdict — code's, not the model's."""
+    data = queries.summary(day)
+    pct = data["peak_loading_pct"]
+    data["status"] = "OVERLOAD (above 100%)" if pct > 100 else "HIGH (above 80%)" if pct > 80 else "NORMAL (80% or below)"
+    return data
+
+
 @app.get("/ask-data")
 def ask_data(q: str = Query(min_length=3, max_length=300, description="a question in plain English"),
              day: date | None = Query(None, description="the day to use if the question names none")):
@@ -155,11 +184,21 @@ def ask_data(q: str = Query(min_length=3, max_length=300, description="a questio
         if the_day is None:
             raise HTTPException(status_code=400, detail="Which day? Add a date like 2026-03-23.")
         try:
-            data = queries.summary(the_day)
+            data = with_status(the_day)
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
-        pct = data["peak_loading_pct"]                                                  # the verdict is code's, not the model's
-        data["status"] = "OVERLOAD (above 100%)" if pct > 100 else "HIGH (above 80%)" if pct > 80 else "NORMAL (80% or below)"
+    elif p.query == "compare_days":
+        the_days = pick_days(q, p.days or [p.day], day)
+        if len(the_days) < 2:
+            raise HTTPException(status_code=400, detail="Which days? Name two dates, like 2026-03-17 and 2026-03-23.")
+        try:
+            rows = [with_status(d) for d in the_days]
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        hi = max(rows, key=lambda r: r["peak_loading_pct"])                            # the comparison is code's too
+        lo = min(rows, key=lambda r: r["peak_loading_pct"])
+        data = {"days": rows, "highest_loading_day": hi["day"], "lowest_loading_day": lo["day"],
+                "difference_pct_points": round(hi["peak_loading_pct"] - lo["peak_loading_pct"], 1)}
     elif p.query == "ranking_of_worst_days":
         data = queries.peak_days(top_in(q))
     elif p.query == "recent_calculations":
@@ -170,5 +209,6 @@ def ask_data(q: str = Query(min_length=3, max_length=300, description="a questio
     listed = re.sub(r"(?m)^\s*\d+[.)]\s", "", text)                                   # "1. 2. 3." list markers aren't data
     bad = sorted(numbers_in(listed) - numbers_in(data) - numbers_in(q) - {"630", "500", "80", "100"})          # 4. code checks
     answer = text if not bad else "LLM answer withheld: it used numbers that are not in the data. The data is below."
-    return {"question": q, "query": p.query, "day": str(the_day) if p.query == "one_day_numbers" else None,
+    days = [str(d) for d in the_days] if p.query == "compare_days" else [str(the_day)] if p.query == "one_day_numbers" else []
+    return {"question": q, "query": p.query, "day": days[0] if p.query == "one_day_numbers" else None, "days": days,
             "data": data, "llm_draft": text, "grounded": not bad, "unknown_numbers": bad, "answer": answer}
