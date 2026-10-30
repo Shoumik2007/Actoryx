@@ -9,7 +9,7 @@ A campus energy API for a college with a 630 kVA transformer (TR-MAIN) and a 500
 | 3 | [`day3/`](day3) | Streamlit calculator and dashboard | [Dashboard](https://campus-energy-dashboard.streamlit.app) |
 | 4 | [`day4/`](day4) | SCADA alarms classified by llama3.2 | Local only |
 | 4 | [`day4_dashboard/`](day4_dashboard) | Ask the dashboard questions in plain English (Groq or Ollama) | [Dashboard](https://campus-energy-llm.streamlit.app) · [API docs](https://campus-energy-day4.fastapicloud.dev/docs) |
-| 5 | [`day5/`](day5) | An agent on the dashboard, using MCP tools (Groq or Ollama) | [API docs](https://campus-energy-mcp.fastapicloud.dev/docs) |
+| 5 | [`day5/`](day5) | An agent on the dashboard, using MCP tools (Groq or Ollama) | [Dashboard](https://campus-energy-mcp.streamlit.app) · [API docs](https://campus-energy-mcp.fastapicloud.dev/docs) |
 
 Each folder runs on its own. See its section below.
 
@@ -205,7 +205,7 @@ If the LLM can't be reached (Ollama not running, or a bad Groq key, rate limit o
 
 ## Day 5 — an agent that works through MCP (`day5/`)
 
-**Live API:** https://campus-energy-mcp.fastapicloud.dev ([docs](https://campus-energy-mcp.fastapicloud.dev/docs)). The deployed version uses Groq.
+**Live dashboard:** https://campus-energy-mcp.streamlit.app — API at https://campus-energy-mcp.fastapicloud.dev ([docs](https://campus-energy-mcp.fastapicloud.dev/docs)). The deployed version uses Groq.
 
 The dashboard's chat box now talks to an agent instead of `/ask-data`. The agent decides which tools to call, and it reaches the data only through the tools on an [MCP](https://modelcontextprotocol.io) server. The same server can also be used by other MCP clients, such as Claude Code.
 
