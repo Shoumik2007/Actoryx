@@ -20,3 +20,6 @@ env/
 
 # Generated databases (rebuild with day2/02_load_readings.py)
 *.db
+
+# Claude Code MCP config (has paths specific to this machine)
+day5/.mcp.json
