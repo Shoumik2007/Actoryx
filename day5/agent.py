@@ -15,6 +15,7 @@ LAST_EVIDENCE, LAST_OBSERVATIONS = "", []
 GUIDE = ("You are an assistant for the campus electrical maintenance team. Answer the question using the tools.\n"
          "Tools:\n" + "\n".join(f"- {name}: {desc}" for name, (_, desc) in TOOLS.items()) +
          "\n- final_answer: when the observations answer the question."
+         "\nFor a bill on a named day: first get_summary, then monthly_bill (code reads the units)."
          "\nChoose ONE action per turn. Fill only the arguments that action needs. "
          "As soon as the observations answer the question, choose final_answer.")
 
@@ -32,7 +33,7 @@ A_MONTH = "|".join(MONTH_NAMES)
 def days_in(question):
     """Dates are an exact pattern, so code reads them: 2026-03-23, 23 March, March 23 (the data is all 2026)."""
     found = []
-    for m in re.finditer(rf"(\d{{4}}-\d{{2}}-\d{{2}})|\b(\d{{1,2}})(?:st|nd|rd|th)?\s+({A_MONTH})[a-z]*|\b({A_MONTH})[a-z]*\s+(\d{{1,2}})\b", question.lower()):
+    for m in re.finditer(rf"(\d{{4}}-\d{{2}}-\d{{2}})|\b(\d{{1,2}})(?:st|nd|rd|th)?\s+({A_MONTH})[a-z]*|\b({A_MONTH})[a-z]*\s+(\d{{1,2}})(?:st|nd|rd|th)?\b", question.lower()):
         try:
             d = m[1] or date(2026, MONTH_NAMES.index(m[3] or m[4]) + 1, int(m[2] or m[5])).isoformat()
         except ValueError:
@@ -85,9 +86,12 @@ def run(question, max_steps=5, verbose=True):
     observations, used = [], set()
     LAST_EVIDENCE, LAST_OBSERVATIONS = "", observations
     candidates = relevant_tools(question)
+    bill_for_a_day = "monthly_bill" in candidates and days_in(question) and not re.search(r"\d\s*(units?|kwh)", question.lower())
     for step_no in range(1, max_steps + 1):
         succeeded = any("error" not in o.get("result", {"error": 1}) for o in observations)
         allowed = [t for t in candidates if t not in used] + (["final_answer"] if succeeded else [])   # no answer before evidence
+        if bill_for_a_day and "monthly_bill" not in used:                   # the question asks for a bill, so it needs one
+            allowed = [t for t in allowed if t != "final_answer"]
         allowed = allowed or ["final_answer"]
         Step = create_model("Step", thought=(str, ...), action=(Literal[tuple(allowed)], ...), **ARGS)
         state = {"question": question, "observations": observations}
@@ -119,6 +123,9 @@ def run(question, max_steps=5, verbose=True):
 
         if step.action in ("get_summary", "get_explanation"):
             step.day = next(iter(days_in(question)), None)                   # code reads the date; the model can't invent one
+        if bill_for_a_day and step.action == "monthly_bill":                 # code reads the day's energy; "4th" must not become 4 units
+            days = [o["result"] for o in observations if o.get("action") == "get_summary" and "error" not in o["result"]]
+            step.units = days[-1]["load_kwh"] if days else None
         missing = [a for a in NEEDS[step.action] if getattr(step, a) is None]
         if missing:
             result = {"error": f"{step.action} needs {missing}"}
@@ -136,6 +143,8 @@ def run(question, max_steps=5, verbose=True):
                 result = func(**args)
             if "error" not in result:
                 used.add(step.action)
+                if bill_for_a_day and step.action == "monthly_bill":
+                    result["note"] = "estimate only: the slab tariff is monthly, and this applies it to one day's energy before solar"
         observations.append({"action": step.action, "args": {a: getattr(step, a) for a in NEEDS[step.action]}, "result": result})
         if verbose:
             print(f"      act:   {step.action}{observations[-1]['args']}\n      see:   {json.dumps(result)[:150]}")
@@ -147,7 +156,7 @@ def write_answer(question, observations):
     useful = [o for o in observations if "action" in o and "error" not in o["result"]]
     return llm.ask(f"Question: {question}\nTool results: {json.dumps(useful)}",
                    system="Answer the question in one or two sentences for a maintenance engineer. Use only numbers "
-                          "that appear in the tool results, copied exactly. If a result has a status, state it.")
+                          "that appear in the tool results, copied exactly. If a result has a status or a note, state it.")
 
 
 def evidence_line(observations):
